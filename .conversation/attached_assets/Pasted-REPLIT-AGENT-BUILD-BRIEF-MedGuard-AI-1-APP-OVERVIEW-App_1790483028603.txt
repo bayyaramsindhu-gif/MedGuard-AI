@@ -1,0 +1,194 @@
+REPLIT AGENT BUILD BRIEF: MedGuard AI
+1. APP OVERVIEW
+
+App Name: MedGuard AI — Early Warning System for Patient Deterioration
+
+One-line description: An AI-powered clinical dashboard that continuously analyzes patient vital signs to predict deterioration risk before it becomes critical, with explainable alerts that help nurses prioritize care.
+
+Core problem it solves: Hospital staff manage many patients simultaneously and cannot continuously watch every vital sign for subtle warning trends. MedGuard AI automates that vigilance — turning raw vitals into an interpretable risk score, ranked patient priority list, and real-time alerts, so staff know exactly who needs attention and why.
+
+Target user: Nurses, doctors, and hospital administrators on general wards or step-down units who need an early-warning layer beyond standard periodic vitals checks.
+
+2. FULL FEATURE LIST
+
+Core (must-have, build first):
+
+Simulated real-time vitals stream for multiple patients (heart rate, SpO2, systolic BP, temperature, respiratory rate)
+Rolling feature engineering (deltas, rolling mean/std, trend slope) computed live per patient
+NEWS2 clinical scoring engine (rule-based, standard bands) computed alongside ML model
+XGBoost (or gradient boosting) risk prediction model trained on labeled synthetic time-series data, predicting deterioration risk in the next 4 hours
+Patient list view sorted by live risk score, color-coded (green/yellow/orange/red)
+Individual patient detail view with vitals trend charts over time
+SHAP-based explainability: top 3 contributing factors shown in plain language per prediction
+Real-time alert system: banner/toast notification when a patient crosses risk threshold
+Alert history log per patient
+
+High-impact (build if time allows, big judge appeal):
+
+Side-by-side comparison: "Our AI flagged this X hours before NEWS2 threshold breach" — highlighted as a metric on the dashboard
+Simulated "fast-forward" demo mode/control panel: button to speed up time and trigger a scripted deterioration event live during demo
+Model performance panel: AUC, precision/recall, confusion matrix on held-out test data
+Dark/light theme toggle
+Sound alert on critical risk
+
+Nice-to-have (only if extra time remains):
+
+Multi-ward view / hospital floor overview
+Export patient report as PDF
+Login/role-based view (nurse vs. doctor vs. admin)
+3. TECH STACK
+Backend: Python, FastAPI
+ML: scikit-learn, XGBoost, SHAP
+Data simulation: Python (numpy, pandas) — synthetic patient vitals generator
+Database: SQLite (via SQLAlchemy) — simple, zero-config, sufficient for hackathon scale
+Real-time updates: WebSocket (FastAPI native WebSocket support) pushing new readings every few seconds
+Frontend: React (Vite) + TailwindCSS for styling
+Charts: Recharts (for vitals trend lines and risk gauge)
+Icons: lucide-react
+State management: React useState/useContext (no need for Redux at this scale)
+
+Keep everything in one Replit project: /backend (FastAPI + ML) and /frontend (React), run concurrently.
+
+4. PAGES & USER FLOW
+
+Page 1: Dashboard (Home) — /
+
+Header: "MedGuard AI" logo, current date/time, demo control panel (Start Simulation / Fast-Forward buttons)
+Main panel: Patient list as cards, sorted by risk score descending, color-coded left border (green/yellow/orange/red)
+Each card shows: patient name/ID, current risk %, risk trend arrow (up/down), last updated timestamp
+Top banner area: live alert feed showing most recent critical alerts
+Clicking a patient card navigates to Patient Detail page
+
+Page 2: Patient Detail — /patient/:id
+
+Back button to Dashboard
+Patient header: name, age, ward, admission date
+Risk score gauge (large, prominent, color-coded 0-100%)
+Vitals trend charts: 4 line charts (HR, SpO2, BP, Temp) over last 24 simulated hours, with a shaded region showing when risk crossed thresholds
+Explainability panel: "Why this score?" — top 3 SHAP factors in plain language with icons
+NEWS2 vs AI Model comparison widget: shows both scores side by side with a note on which detected risk earlier
+Alert history table for this patient
+
+Page 3: Model Insights (optional, for judges) — /insights
+
+Model performance metrics: AUC-ROC curve, precision/recall, confusion matrix
+Feature importance chart (global SHAP summary plot)
+Brief text explaining methodology (NEWS2 baseline + ML enhancement)
+
+Navigation: Top nav bar with Dashboard | Model Insights links. Patient Detail accessed only via clicking a patient card (back button returns to Dashboard).
+
+5. UI & DESIGN INSTRUCTIONS
+
+Color scheme:
+
+Primary background: soft off-white (
+#F8FAFC) / dark mode: deep navy (
+#0F172A)
+Accent/brand color: medical teal (
+#0D9488)
+Risk colors: Stable 
+#22C55E (green), Watch 
+#EAB308 (yellow), Warning 
+#F97316 (orange), Critical 
+#EF4444 (red)
+Card backgrounds: white with soft shadow (shadow-md), rounded corners (rounded-2xl)
+
+Fonts: Inter (via Google Fonts) for all UI text — clean, clinical, highly legible
+
+Layout style:
+
+Card-based grid layout for patient list (responsive: 3 columns desktop, 1 column mobile)
+Generous whitespace, clear visual hierarchy — this should look like a real clinical product, not a hackathon hack
+Sticky top navigation bar
+Smooth transitions when risk level changes (subtle pulse animation on card when a new alert fires)
+Risk gauge on Patient Detail page: circular progress ring (like a speedometer), animated fill
+
+Components:
+
+Toast notifications (top-right) for new alerts, auto-dismiss after 6 seconds, critical alerts persist until acknowledged
+Skeleton loaders while data is fetching
+Subtle fade-in animations on page load (framer-motion optional, or CSS transitions)
+
+Must look polished, modern, and clinical/trustworthy out of the box — avoid childish colors or playful fonts.
+
+6. DATA & APIS
+
+No external API needed — this is fully self-contained with simulated data to guarantee reliable offline demo performance.
+
+Data Models (SQLite schema):
+
+Patient
+- id (int, PK)
+- name (string)
+- age (int)
+- ward (string)
+- admission_date (datetime)
+
+VitalReading
+- id (int, PK)
+- patient_id (FK)
+- timestamp (datetime)
+- heart_rate (float)
+- spo2 (float)
+- systolic_bp (float)
+- temperature (float)
+- respiratory_rate (float)
+
+RiskScore
+- id (int, PK)
+- patient_id (FK)
+- timestamp (datetime)
+- ml_risk_score (float, 0-1)
+- news2_score (int, 0-20)
+- risk_level (string: stable/watch/warning/critical)
+- top_factors (JSON: list of {feature, impact, direction})
+
+Alert
+- id (int, PK)
+- patient_id (FK)
+- timestamp (datetime)
+- risk_level (string)
+- message (string)
+- acknowledged (bool)
+
+Synthetic Data Generator (implement exactly):
+
+Generate 12 patients. For each patient, generate 48 hourly VitalReading records:
+
+Baseline: HR random(60-90), SpO2 random(95-99), SBP random(110-130), Temp random(36.1-37.2), RR random(12-18)
+4 of the 12 patients ("deteriorating"): starting at a random hour between 20-35, apply gradual drift over 8-12 hours: HR +0.5 to +2/hr, SpO2 -0.2 to -0.5/hr, SBP -1 to -3/hr, RR +0.3 to +1/hr
+Remaining 8 patients: small random noise only, stay stable throughout
+Add small realistic noise (±2-3%) to all readings regardless of trend
+
+ML Training:
+
+Compute NEWS2 score per reading using the standard clinical bands (RR, SpO2, SBP, HR, Temp thresholds)
+Label = 1 if NEWS2 will reach ≥7 within next 4 hours, else 0
+Engineer features: current values, 1hr delta, 4hr delta, 4hr rolling mean/std, trend slope, current NEWS2 score
+Train XGBoost classifier on this labeled synthetic dataset, save model with joblib
+Compute SHAP TreeExplainer values at inference time for explainability
+
+Real-time simulation for demo: A backend loop advances the "simulated clock" by 1 hour every 3-5 real seconds, pushing new readings via WebSocket, recomputing risk scores and firing alerts as thresholds are crossed. Include a "Fast Forward" button to skip directly to the deterioration event for demo purposes.
+
+7. STEP-BY-STEP BUILD INSTRUCTIONS FOR REPLIT AGENT
+Initialize a Replit project with a Python backend (/backend) and a React+Vite frontend (/frontend), configured to run concurrently on different ports (backend on 8000, frontend on 5173, proxy API calls from frontend to backend).
+In /backend, set up FastAPI with SQLAlchemy and SQLite. Create the four database models exactly as specified in section 6 (Patient, VitalReading, RiskScore, Alert).
+Write simulate_data.py: generate 12 patients (4 deteriorating, 8 stable) with 48 hourly VitalReading records each, following the exact synthetic data logic in section 6. Insert into the database on first run.
+Write news2.py: implement the exact NEWS2 scoring function using the clinical band thresholds (RR, SpO2, SBP, HR, Temp) described in section 6, returning total score 0-20 and risk_level string.
+Write features.py: for any given patient at a given timestamp, compute the feature vector: current vitals, 1hr delta, 4hr delta, 4hr rolling mean, 4hr rolling std, trend slope (linear regression over last 4 points), and current NEWS2 score.
+Write train_model.py: build the full labeled training dataset from all simulated patients (feature vector + label = will NEWS2 reach ≥7 within next 4 hours), train an XGBoost classifier (n_estimators=200, max_depth=5, learning_rate=0.05, scale_pos_weight=3), evaluate with train/test split (80/20 stratified), print AUC/precision/recall, and save the model with joblib to /backend/model.pkl.
+Write explain.py: load the trained model, use shap.TreeExplainer to compute SHAP values for any given feature vector, and return the top 3 features with their impact direction, converted into human-readable strings (e.g., "SpO2 declining over the last 4 hours").
+Build FastAPI endpoints:
+GET /api/patients — returns all patients with their latest risk score, sorted descending by ml_risk_score
+GET /api/patients/{id} — returns patient details, full vitals history, full risk score history, and alert history
+GET /api/insights — returns model performance metrics and global SHAP feature importance
+WS /ws/simulation — WebSocket endpoint that advances the simulated clock, computes new risk scores using the trained model + explain.py, inserts new RiskScore and Alert records when thresholds are crossed, and broadcasts updates to connected clients
+POST /api/simulation/fast-forward — jumps simulated clock directly to the first deterioration event of any deteriorating patient, for demo purposes
+In /frontend, scaffold a React app with Vite, install TailwindCSS, Recharts, lucide-react, and configure Inter font via Google Fonts link in index.html.
+Build the Dashboard page (/): fetch /api/patients on load, render patient cards sorted by risk, connect to /ws/simulation WebSocket for live updates, implement the color-coded risk borders and alert toast notifications exactly as described in section 5.
+Build the Patient Detail page (/patient/:id): fetch /api/patients/{id}, render the 4 vitals trend line charts using Recharts, the circular risk score gauge, the SHAP explainability panel, and the NEWS2-vs-AI comparison widget as described in section 4.
+Build the Model Insights page (/insights): fetch /api/insights, render AUC-ROC curve, confusion matrix, and global feature importance bar chart using Recharts.
+Add the demo control panel to the Dashboard header: "Start Simulation" button (opens WebSocket connection and begins advancing simulated time), "Fast Forward to Event" button (calls the fast-forward endpoint).
+Apply the full color scheme, fonts, card styling, and animations specified in section 5 across all pages. Ensure responsive layout for both desktop and mobile.
+Test the full flow end-to-end: run simulate_data.py to populate the database, run train_model.py to train and save the model, start the FastAPI backend, start the React frontend, open the Dashboard, click "Start Simulation," verify patient cards update live, verify an alert fires when a deteriorating patient crosses threshold, click into that patient's detail page, verify charts and SHAP explanations render correctly, and verify the Model Insights page loads performance metrics correctly.
+Add a README.md summarizing the project, the NEWS2+AI methodology, and instructions to run simulate_data.py and train_model.py before starting the app for the first time.

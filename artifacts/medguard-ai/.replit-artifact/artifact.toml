@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "MedGuard AI"
+description = "A clinical early-warning dashboard for nurses and doctors that monitors simulated patient vitals, explains deterioration risk, and surfaces real-time alerts before patients become critical."
+version = "1.0.0"
+id = "artifacts/medguard-ai"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19389
+
+[services.development]
+run = "pnpm --filter @workspace/medguard-ai run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/medguard-ai", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/medguard-ai/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19389"
+BASE_PATH = "/"

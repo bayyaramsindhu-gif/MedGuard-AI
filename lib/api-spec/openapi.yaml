@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: patients
+    description: Patient monitoring operations
+  - name: simulation
+    description: Demo simulation controls
+  - name: insights
+    description: Model performance and explainability insights
 paths:
   /healthz:
     get:
@@ -24,6 +30,109 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /patients:
+    get:
+      operationId: getPatients
+      tags: [patients]
+      summary: List monitored patients
+      responses:
+        "200":
+          description: Patients sorted by current AI risk
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PatientSummary"
+  /patients/{id}:
+    get:
+      operationId: getPatient
+      tags: [patients]
+      summary: Get patient monitoring details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Patient detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatientDetail"
+        "404":
+          description: Patient not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /patients/{id}/alerts/{alertId}/acknowledge:
+    post:
+      operationId: acknowledgeAlert
+      tags: [patients]
+      summary: Acknowledge a patient alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: alertId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated alert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+        "404":
+          description: Alert not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /insights:
+    get:
+      operationId: getInsights
+      tags: [insights]
+      summary: Get model performance insights
+      responses:
+        "200":
+          description: Model insights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Insights"
+  /simulation/tick:
+    post:
+      operationId: tickSimulation
+      tags: [simulation]
+      summary: Advance the simulated clock
+      responses:
+        "200":
+          description: Simulation update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationUpdate"
+  /simulation/fast-forward:
+    post:
+      operationId: fastForwardSimulation
+      tags: [simulation]
+      summary: Jump to the deterioration event
+      responses:
+        "200":
+          description: Simulation update after fast-forwarding
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationUpdate"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +142,140 @@ components:
           type: string
       required:
         - status
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    Patient:
+      type: object
+      required: [id, name, age, ward, admissionDate]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        age: { type: integer }
+        ward: { type: string }
+        admissionDate: { type: string, format: date-time }
+    Vitals:
+      type: object
+      required: [heartRate, spo2, systolicBp, temperature, respiratoryRate]
+      properties:
+        heartRate: { type: number }
+        spo2: { type: number }
+        systolicBp: { type: number }
+        temperature: { type: number }
+        respiratoryRate: { type: number }
+    VitalReading:
+      allOf:
+        - $ref: "#/components/schemas/Vitals"
+        - type: object
+          required: [timestamp]
+          properties:
+            timestamp: { type: string, format: date-time }
+    TopFactor:
+      type: object
+      required: [feature, impact, direction, description]
+      properties:
+        feature: { type: string }
+        impact: { type: number }
+        direction: { type: string, enum: [increasing, decreasing] }
+        description: { type: string }
+    RiskScore:
+      type: object
+      required: [timestamp, mlRiskScore, news2Score, riskLevel, topFactors]
+      properties:
+        timestamp: { type: string, format: date-time }
+        mlRiskScore: { type: number }
+        news2Score: { type: integer }
+        riskLevel: { type: string, enum: [stable, watch, warning, critical] }
+        topFactors:
+          type: array
+          items: { $ref: "#/components/schemas/TopFactor" }
+    Alert:
+      type: object
+      required: [id, timestamp, riskLevel, message, acknowledged]
+      properties:
+        id: { type: integer }
+        timestamp: { type: string, format: date-time }
+        riskLevel: { type: string, enum: [stable, watch, warning, critical] }
+        message: { type: string }
+        acknowledged: { type: boolean }
+    PatientSummary:
+      allOf:
+        - $ref: "#/components/schemas/Patient"
+        - type: object
+          required: [latestVitals, latestRisk, riskTrend, lastUpdated, alertCount]
+          properties:
+            latestVitals: { $ref: "#/components/schemas/Vitals" }
+            latestRisk: { $ref: "#/components/schemas/RiskScore" }
+            riskTrend: { type: string, enum: [up, down, flat] }
+            lastUpdated: { type: string, format: date-time }
+            alertCount: { type: integer }
+    PatientDetail:
+      allOf:
+        - $ref: "#/components/schemas/PatientSummary"
+        - type: object
+          required: [vitalsHistory, riskHistory, alerts]
+          properties:
+            vitalsHistory:
+              type: array
+              items: { $ref: "#/components/schemas/VitalReading" }
+            riskHistory:
+              type: array
+              items: { $ref: "#/components/schemas/RiskScore" }
+            alerts:
+              type: array
+              items: { $ref: "#/components/schemas/Alert" }
+    ConfusionMatrix:
+      type: object
+      required: [trueNegative, falsePositive, falseNegative, truePositive]
+      properties:
+        trueNegative: { type: integer }
+        falsePositive: { type: integer }
+        falseNegative: { type: integer }
+        truePositive: { type: integer }
+    Insights:
+      type: object
+      required: [auc, precision, recall, evaluatedSamples, confusionMatrix, rocCurve, featureImportance]
+      properties:
+        auc: { type: number }
+        precision: { type: number }
+        recall: { type: number }
+        evaluatedSamples: { type: integer }
+        confusionMatrix: { $ref: "#/components/schemas/ConfusionMatrix" }
+        rocCurve:
+          type: array
+          items:
+            type: object
+            required: [fpr, tpr]
+            properties:
+              fpr: { type: number }
+              tpr: { type: number }
+        featureImportance:
+          type: array
+          items:
+            type: object
+            required: [feature, importance]
+            properties:
+              feature: { type: string }
+              importance: { type: number }
+    SimulationUpdate:
+      type: object
+      required: [simulatedTime, newlyAlerted, patients]
+      properties:
+        simulatedTime: { type: string, format: date-time }
+        newlyAlerted:
+          type: array
+          items:
+            type: object
+            required: [patientId, patientName, message, riskLevel]
+            properties:
+              patientId: { type: integer }
+              patientName: { type: string }
+              message: { type: string }
+              riskLevel: { type: string, enum: [stable, watch, warning, critical] }
+        patients:
+          type: array
+          items: { $ref: "#/components/schemas/PatientSummary" }
 
